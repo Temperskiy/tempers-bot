@@ -6,7 +6,8 @@ from mcstatus import JavaServer
 # Настройка бота
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
+
 
 # Твой токен из настроек Render
 TOKEN = os.getenv('DISCORD_TOKEN')
