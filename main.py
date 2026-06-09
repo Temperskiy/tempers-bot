@@ -1,6 +1,7 @@
-import os
 import discord
-from discord.ext import commands
+import os
+from discord.ext import commands, tasks
+from mcstatus import MinecraftServer
 
 # Бот будет брать токен ТОЛЬКО из настроек Render
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -26,6 +27,7 @@ async def on_ready():
 @tasks.loop(minutes=1.0)
 async def check_server():
     global was_online
+
     try:
         server = JavaServer.lookup(SERVER_ADDRESS)
         server.status() # Проверка связи
