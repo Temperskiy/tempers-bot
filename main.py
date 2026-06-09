@@ -1,64 +1,60 @@
 import discord
 import os
 from discord.ext import commands, tasks
-from mcstatus import MinecraftServer
+from mcstatus import JavaServer
 
-# Бот будет брать токен ТОЛЬКО из настроек Render
-TOKEN = os.getenv('DISCORD_TOKEN')
-
-SERVER_ADDRESS = 'TempersSMP-nd4T.aternos.me:58427'
-# Вставь сюда ID канала (только цифры)
-CHANNEL_ID = 1505160265325482034 
-# -----------------
-
+# Настройка бота
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-was_online = False
+# Твой токен из настроек Render
+TOKEN = os.getenv('DISCORD_TOKEN')
+
+# Укажи здесь IP своего сервера
+SERVER_ADDRESS = "TempersSMP-nd4T.aternos.me:58427"
 
 @bot.event
 async def on_ready():
     print(f'Бот {bot.user} запущен!')
-    # Запускаем цикл проверки
-    if not check_server.is_running():
-        check_server.start()
+    check_server.start()
 
-@tasks.loop(minutes=1.0)
-async def check_server():
-    global was_online
-
-    try:
-        server = JavaServer.lookup(SERVER_ADDRESS)
-        server.status() # Проверка связи
-        is_online = True
-    except:
-        is_online = False
-
-    # Уведомление об изменении статуса
-    if is_online != was_online:
-        channel = bot.get_channel(CHANNEL_ID)
-        if channel:
-            if is_online:
-                await channel.send("🚀 Сервер TempersSMP запущен и доступен для игры!")
-            else:
-                await channel.send("🔌 Сервер TempersSMP выключен.")
-            
-    was_online = is_online
+# --- КОМАНДЫ ---
 
 @bot.command()
-async def status(ctx):
+async def ip(ctx):
+    await ctx.send(f"IP нашего сервера: `{SERVER_ADDRESS}`")
+
+@bot.command()
+async def info(ctx):
     try:
         server = JavaServer.lookup(SERVER_ADDRESS)
         status = server.status()
-        embed = discord.Embed(title="📊 Статус TempersSMP", color=discord.Color.green())
-        embed.add_field(name="Состояние", value="Онлайн ✅", inline=False)
-        embed.add_field(name="Игроки", value=f"{status.players.online}/{status.players.max}", inline=True)
-        embed.add_field(name="Пинг", value=f"{status.latency:.0f} мс", inline=True)
-        embed.add_field(name="Версия", value=status.version.name, inline=False)
-        await ctx.send(embed=embed)
+        await ctx.send(f"Сервер онлайн! Игроков: {status.players.online}/{status.players.max}")
     except:
-        await ctx.send("❌ Сервер TempersSMP сейчас офлайн или недоступен.")
+        await ctx.send("Сервер сейчас недоступен.")
 
-# Запуск бота
-bot.run(TOKEN)
+@bot.command()
+async def help(ctx):
+    help_text = """
+**Доступные команды:**
+!ip — показать IP сервера
+!info — узнать текущий статус и количество игроков
+!help — этот список команд
+"""
+    await ctx.send(help_text)
+
+# --- АВТО-ОБНОВЛЕНИЕ СТАТУСА ---
+
+@tasks.loop(minutes=1.0)
+async def check_server():
+    try:
+        server = JavaServer.lookup(SERVER_ADDRESS)
+        status = server.status()
+        await bot.change_presence(activity=discord.Game(f"Онлайн: {status.players.online}"))
+    except:
+        await bot.change_presence(activity=discord.Game("Сервер оффлайн"))
+
+if __name__ == "__main__":
+    bot.run(TOKEN)
+    
