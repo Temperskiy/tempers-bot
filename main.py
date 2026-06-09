@@ -1,11 +1,10 @@
+import os
 import discord
-from discord.ext import commands, tasks
-from mcstatus import JavaServer
+from discord.ext import commands
 
-# --- НАСТРОЙКИ ---
-# Вставь сюда свой токен бота
-TOKEN = 'MTUxMzkzODkzMTAzNTUOMTcyNg.GI20x_.by4glOBSeiJ2oOGkOqlu_udld_DaUGZX1JH-dY'
-# Адрес твоего сервера
+# Бот будет брать токен ТОЛЬКО из настроек Render
+TOKEN = os.getenv('DISCORD_TOKEN')
+
 SERVER_ADDRESS = 'TempersSMP-nd4T.aternos.me:58427'
 # Вставь сюда ID канала (только цифры)
 CHANNEL_ID = 1505160265325482034 
