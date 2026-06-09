@@ -4,7 +4,7 @@ from mcstatus import JavaServer
 
 # --- НАСТРОЙКИ ---
 # Вставь сюда свой токен бота
-TOKEN = 'MTUxMzkzODkzMTAzNTU0MTcyNg.Gxy5G_.v9R-u4d4T0spcij-23HBz4bwgJcSef3xmOJMHs'
+TOKEN = 'MTUxMzkzODkzMTAzNTUOMTcyNg.GI20x_.by4glOBSeiJ2oOGkOqlu_udld_DaUGZX1JH-dY'
 # Адрес твоего сервера
 SERVER_ADDRESS = 'TempersSMP-nd4T.aternos.me:58427'
 # Вставь сюда ID канала (только цифры)
