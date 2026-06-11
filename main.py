@@ -2,24 +2,25 @@ import discord
 import os
 import json
 import re
+import sys
 from discord.ext import commands, tasks
 from mcstatus import JavaServer
 from flask import Flask
 from threading import Thread
-from python_aternos import Client
 
 # --- НАСТРОЙКА ВЕБ-СЕРВЕРА ДЛЯ РЕЖИМА 24/7 ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бот активен и работает 24/7! Подключите этот URL к cron-job.org."
+    return "Бот активен и работает 24/7!"
 
 def run():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
     t = Thread(target=run)
+    t.daemon = True
     t.start()
 
 # --- НАСТРОЙКА БОТА ---
@@ -27,41 +28,43 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
-# Переменные окружения и настройки сервера
 TOKEN = os.getenv('DISCORD_TOKEN')
 SERVER_ADDRESS = "TempersSMP-nd4T.aternos.me:58427"
 DATA_FILE = "kills_stats.json"
 
-# === ИСПРАВЛЕННЫЕ ID КАНАЛОВ ===
-MINECRAFT_CHAT_CHANNEL_ID = 1514273059173961808  # Новый правильный канал чата и смертей DiscordSRV
-LEADERBOARD_CHANNEL_ID = 1514272743795724340     # Канал автоматического обновления топа
+MINECRAFT_CHAT_CHANNEL_ID = 1514273059173961808  
+LEADERBOARD_CHANNEL_ID = 1514272743795724340     
 
-# Шаблон для поиска убийств из DiscordSRV на английском языке
 KILL_PATTERN = re.compile(r"([\w_]+) was slain by ([\w_]+)")
 
-# --- РАБОТА С БАЗОЙ ДАННЫХ (JSON) ---
 def load_stats():
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception as e:
+            print(f"[ЛОГ] Ошибка чтения БД: {e}")
             return {}
     return {}
 
 def save_stats(stats):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(stats, f, ensure_ascii=False, indent=4)
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(stats, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print(f"[ЛОГ] Ошибка сохранения БД: {e}")
 
 kills_db = load_stats()
 
 @bot.event
 async def on_ready():
-    print(f'Бот {bot.user} успешно запущен!')
-    check_server.start()
-    update_leaderboard_job.start()
+    print(f'Бот {bot.user} успешно запущен в Discord!')
+    try:
+        check_server.start()
+        update_leaderboard_job.start()
+    except Exception as e:
+        print(f"[ЛОГ] Ошибка запуска задач: {e}")
 
-# --- АВТОМАТИЧЕСКИЙ ПЕРЕХВАТ КИЛЛОВ ИЗ DISCORDSRV ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -79,84 +82,59 @@ async def on_message(message):
             victim, attacker = match.groups()
             kills_db[attacker] = kills_db.get(attacker, 0) + 1
             save_stats(kills_db)
-            print(f"[Килл] {attacker} уничтожил {victim}. Всего: {kills_db[attacker]}")
 
     await bot.process_commands(message)
 
-# --- АВТО-ОБНОВЛЕНИЕ ТАБЛИЦЫ ЛИДЕРОВ РАЗ В 5 МИНУТ ---
 @tasks.loop(minutes=5.0)
 async def update_leaderboard_job():
-    channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
-    if not channel:
-        return
-
-    if not kills_db:
-        leaderboard_text = "🏆 **Топ убийц сервера:**\nПока никто никого не убил."
-    else:
-        sorted_kills = sorted(kills_db.items(), key=lambda x: x[1], reverse=True)
-        leaderboard_text = "🏆 **Официальный топ убийц сервера:**\n"
-        for place, (player, count) in enumerate(sorted_kills, 1):
-            leaderboard_text += f"{place}. `{player}` — **{count}** ⚔️\n"
-
-    async for msg in channel.history(limit=10):
-        if msg.author == bot.user:
-            await msg.edit(content=leaderboard_text)
+    try:
+        channel = bot.get_channel(LEADERBOARD_CHANNEL_ID)
+        if not channel:
             return
-            
-    await channel.send(leaderboard_text)
+
+        if not kills_db:
+            leaderboard_text = "🏆 **Топ убийц сервера:**\nПока никто никого не убил."
+        else:
+            sorted_kills = sorted(kills_db.items(), key=lambda x: x[1], reverse=True)
+            leaderboard_text = "🏆 **Официальный топ убийц сервера:**\n"
+            for place, (player, count) in enumerate(sorted_kills, 1):
+                leaderboard_text += f"{place}. `{player}` — **{count}** ⚔️\n"
+
+        async for msg in channel.history(limit=10):
+            if msg.author == bot.user:
+                await msg.edit(content=leaderboard_text)
+                return
+                
+        await channel.send(leaderboard_text)
+    except Exception as e:
+        print(f"[ЛОГ] Ошибка топа: {e}")
 
 # --- КОМАНДЫ БОТА ---
 
 @bot.command()
 async def on(ctx):
-    """Включает сервер через твинк-аккаунт Атерноса"""
-    await ctx.send("🔍 Проверяю текущий статус сервера...")
-    
+    """Инструкция по быстрому включению сервера"""
     try:
         server_dns = JavaServer.lookup(SERVER_ADDRESS)
         server_dns.status()
-        await ctx.send("🟢 Сервер уже работает! Можешь заходить.")
+        await ctx.send("🟢 **Сервер уже запущен и работает!** Заходи играть.")
         return
     except:
         pass
 
-    await ctx.send("⏳ Подключаюсь к панели Aternos, подожди...")
+    instructions = """
+⏳ **Сервер сейчас выключен!** 
+Вы можете включить его самостоятельно за 10 секунд:
 
-    at_user = os.getenv('ATERNOS_USER')
-    at_pass = os.getenv('ATERNOS_PASSWORD')
+1️⃣ Перейдите на сайт: https://aternos.org/server/
+2️⃣ Нажмите зеленую кнопку **«Запустить»**.
 
-    if not at_user or not at_pass:
-        await ctx.send("❌ Ошибка: В настройках Render не указаны ATERNOS_USER или ATERNOS_PASSWORD.")
-        return
-
-    try:
-        aternos = Client.from_credentials(at_user, at_pass)
-        servers = aternos.list_servers()
-        
-        if not servers:
-            await ctx.send("❌ Не удалось найти сервер. Проверь права доступа для твинка.")
-            return
-            
-        my_server = servers[0]
-        status_code = my_server.status_num
-        
-        if status_code == 1:
-            await ctx.send("🟢 Сервер уже запущен!")
-        elif status_code in [2, 3, 4]:
-            await ctx.send("⏳ Сервер уже включается. Заходи через пару минут!")
-        elif status_code == 6:
-            await ctx.send("⏳ Сервер стоит в очереди на запуск.")
-        else:
-            my_server.start()
-            await ctx.send("🚀 Команда отправлена! Сервер запускается. Подожди 2-3 минуты.")
-            
-    except Exception as e:
-        print(f"Ошибка запуска: {e}")
-        await ctx.send("❌ Не удалось запустить сервер. Возможно, Атернос обновил защиту.")
+💡 *Если у вас нет кнопки запуска, напишите админу сервера — он выдаст вашему Атернос-аккаунту доступ для включения (без доступа к файлам и консоли)!*
+"""
+    await ctx.send(instructions)
 
 @bot.command()
 async def players(ctx):
-    """Показывает ники игроков онлайн"""
     try:
         server = JavaServer.lookup(SERVER_ADDRESS)
         status = server.status()
@@ -171,7 +149,6 @@ async def players(ctx):
 
 @bot.command()
 async def top(ctx):
-    """Показывает таблицу лидеров по запросу"""
     if not kills_db:
         await ctx.send("🏆 Таблица лидеров пока пуста.")
         return
@@ -183,7 +160,6 @@ async def top(ctx):
 
 @bot.command()
 async def eventrules(ctx):
-    """Показывает правила текущего ивента"""
     rules_text = """
 📜 **ПРАВИЛА ИВЕНТА** 📜
 ——————————————————
@@ -197,7 +173,6 @@ async def eventrules(ctx):
 
 @bot.command()
 async def github(ctx):
-    """Выводит ссылку на GitHub разработчика"""
     await ctx.send("Бот в открытом доступе на github (by.temperskiy)")
 
 @bot.command()
@@ -217,7 +192,7 @@ async def info(ctx):
 async def help(ctx):
     help_text = """
 **Доступные команды:**
-• `!on` — включить сервер (если он оффлайн) 🚀
+• `!on` — как включить сервер (если он оффлайн) 🚀
 • `!ip` — показать IP сервера
 • `!info` — статус сервера и количество игроков
 • `!players` — ники тех, кто сейчас играет онлайн
@@ -231,7 +206,6 @@ async def help(ctx):
 """
     await ctx.send(help_text)
 
-# --- АВТО-ОБНОВЛЕНИЕ СТАТУСА БОТА (СТАТУС ИГРЫ) ---
 @tasks.loop(minutes=1.0)
 async def check_server():
     try:
@@ -242,6 +216,17 @@ async def check_server():
         await bot.change_presence(activity=discord.Game("Сервер оффлайн"))
 
 if __name__ == "__main__":
+    if not TOKEN:
+        print("[ОШИБКА] DISCORD_TOKEN отсутствует в настройках!")
+        sys.exit(1)
+        
     keep_alive()
-    bot.run(TOKEN)
-    
+    try:
+        bot.run(TOKEN)
+    except discord.errors.LoginFailure:
+        print("[ОШИБКА] Токен бота недействительный!")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ОШИБКА] Сбой bot.run: {e}")
+        sys.exit(1)
+        
