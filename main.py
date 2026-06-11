@@ -32,9 +32,9 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 SERVER_ADDRESS = "TempersSMP-nd4T.aternos.me:58427"
 DATA_FILE = "kills_stats.json"
 
-# === ВАЖНО: ЗАМЕНИ ЭТИ ID НА СВОИ ЦИФРАМИ ===
-MINECRAFT_CHAT_CHANNEL_ID = 123456789012345678  # ID канала, куда DiscordSRV пишет чат и смерти
-LEADERBOARD_CHANNEL_ID = 876543210987654321     # ID канала, где бот будет автоматически обновлять топ
+# === ИСПРАВЛЕННЫЕ ID КАНАЛОВ ===
+MINECRAFT_CHAT_CHANNEL_ID = 1514273059173961808  # Новый правильный канал чата и смертей DiscordSRV
+LEADERBOARD_CHANNEL_ID = 1514272743795724340     # Канал автоматического обновления топа
 
 # Шаблон для поиска убийств из DiscordSRV на английском языке
 KILL_PATTERN = re.compile(r"([\w_]+) was slain by ([\w_]+)")
@@ -244,4 +244,4 @@ async def check_server():
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
-        
+    
